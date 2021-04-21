@@ -25,11 +25,12 @@ int* G = NULL;  // adjacency matrix representation of the graph
 int* D = NULL;  // matrix of distances
 
 #define RC(i, j) (i * N + j)
+#define INF (N * N * 100)
 
 // set G[i,j] to value
 inline static void set_G(int i, int j, int value) {
   assert(value >= 0 || value == -1);
-  G[RC(i, j)] = (value >= 0) ? value : INT_MAX;
+  G[RC(i, j)] = (value >= 0) ? value : INF;
   return;
 }
 
@@ -40,7 +41,7 @@ inline static int get_G(int i, int j) {
 
 void init_G(FILE* fp) {
   // Allocate memory and read the matrix
-  G = (int*)calloc(N * N, sizeof(int));
+  G = (int*)malloc(N * N * sizeof(int));
   SYSEXPECT(G != NULL);
   int scan_ret;
   for (int i = 0; i < N; i++) {
@@ -61,7 +62,7 @@ void apsp_print_result() {
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       int d = D[RC(i, j)];
-      if (d == INT_MAX) {
+      if (d >= INF) {
         printf("-1 ");
       } else {
         printf("%d ", d);
@@ -107,7 +108,7 @@ int main(int argc, char** argv) {
     error_exit("Illegal vertex count: %d\n", N);
   }
   init_G(fp);
-  D = (int*)calloc(N * N, sizeof(int));
+  D = (int*)malloc(N * N * sizeof(int));
   SYSEXPECT(D != NULL);
   struct timespec before, after;
   clock_gettime(CLOCK_REALTIME, &before);
