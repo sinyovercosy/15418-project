@@ -58,19 +58,23 @@ void init_G(FILE* fp) {
 
 // prints results
 void apsp_print_result() {
+  int sum1 = 0;
+  int sum2 = 0;
   printf("========== Solution ==========\n");
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       int d = D[RC(i, j)];
       if (d >= INF) {
-        printf("-1 ");
-      } else {
-        printf("%d ", d);
+        d = -1;
       }
+      sum1 = (sum1 + d) % 255;
+      sum2 = (sum2 + sum1) % 255;
+      printf("%d ", d);
     }
     putchar('\n');
   }
   putchar('\n');
+  printf("Checksum: %d", (sum2 << 8) | sum1);
   putchar('\n');
   return;
 }
