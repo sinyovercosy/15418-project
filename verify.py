@@ -4,8 +4,10 @@ import sys, string, os, glob
 def verify(filename):
     # TODO: change program names
     outputRef = os.popen("ref/floyd-ref " + filename).read().split("\n")
-    output = os.popen("omp/floyd-omp -p 1 " + filename).read().split("\n")
+    output = os.popen("ref/johnson-ref " + filename).read().split("\n")
     for (i, (lineRef, line)) in enumerate(zip(outputRef, output)):
+        if i < 4:
+            continue
         distsRef = lineRef.rstrip().split(" ")
         dists = line.rstrip().split(" ")
         for (j, (distRef, dist)) in enumerate(zip(distsRef, dists)):
