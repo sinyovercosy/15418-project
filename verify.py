@@ -1,19 +1,20 @@
 import sys, string, os, glob
 
+def run(command):
+    output = os.popen(command).read().split()
+    return int(output[1])
+
+programs = ["ref/floyd-ref {}", "ref/johnson-ref {}", "omp/floyd-omp -p 8 {}", "omp/johnson-omp -p 8 {}"]
 
 def verify(filename):
-    # TODO: change program names
-    outputRef = os.popen("ref/floyd-ref " + filename).read().split("\n")
-    output = os.popen("ref/johnson-ref " + filename).read().split("\n")
-    for (i, (lineRef, line)) in enumerate(zip(outputRef, output)):
-        if i < 4:
-            continue
-        distsRef = lineRef.rstrip().split(" ")
-        dists = line.rstrip().split(" ")
-        for (j, (distRef, dist)) in enumerate(zip(distsRef, dists)):
-            if distRef != dist:
-                print("Mismatch in {} on distance from {} to {}: ref got {}, instead got {}".format(filename, i, j, distRef, dist))
-                return False
+    ref = run(programs[0].format(filename))
+    for program in programs[2:]:
+        command = program.format(filename)
+        ans = run(command)
+        if ref != ans:
+            print("Failed: {} returned {} instead of {}", command, ans, ref)
+            return False
+
     print("Passed: {}".format(filename))
     return True
 
