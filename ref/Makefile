@@ -2,7 +2,7 @@ TARGET = floyd-ref johnson-ref
 OBJS += floyd-ref.o johnson-ref.o
 
 CXX = g++
-CXXFLAGS += -std=gnu++11 -Wall -Werror -Wextra -g -O3 -DNDEBUG
+CXXFLAGS += -std=gnu++98 -Wall -Werror -Wextra -g -O3 -DNDEBUG
 LDFLAGS += $(LIBS)
 
 default:	$(TARGET)
