@@ -27,7 +27,7 @@ int* D = NULL;  // matrix of distances
 int NCORES = -1;
 
 #define RC(i, j) (i * N + j)
-#define INF (N * N * 100)
+#define INF (N * 100)
 
 // set G[i,j] to value
 inline static void set_G(int i, int j, int value) {
@@ -59,10 +59,9 @@ void init_G(FILE* fp) {
 }
 
 // prints results
-void apsp_print_result() {
+void apsp_print_result(FILE* out) {
   int sum1 = 0;
   int sum2 = 0;
-  printf("========== Solution ==========\n");
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       int d = D[RC(i, j)];
@@ -71,17 +70,23 @@ void apsp_print_result() {
       }
       sum1 = (sum1 + d) % 255;
       sum2 = (sum2 + sum1) % 255;
-      printf("%d ", d);
+      if (out != NULL) {
+        fprintf(out, "%d ", d);
+      }
     }
-    putchar('\n');
+    if (out != NULL) {
+      fprintf(out, "\n");
+    }
   }
-  putchar('\n');
-  printf("Checksum: %d", (sum2 << 8) | sum1);
-  putchar('\n');
+  printf("Checksum: %d\n", (sum2 << 8) | sum1);
+  if (out != NULL) {
+    fclose(out);
+  }
   return;
 }
 
 void apsp_start() {
+#pragma omp parallel for num_threads(NCORES)
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       D[RC(i, j)] = get_G(i, j);
@@ -89,12 +94,12 @@ void apsp_start() {
   }
   for (int k = 0; k < N; k++) {
 #pragma omp parallel for num_threads(NCORES)
-    for (int ind = 0; ind < N * N; ind++) {
-      int i = ind / N;
-      int j = ind % N;
-      int d = D[RC(i, k)] + D[RC(k, j)];
-      if (d < D[RC(i, j)]) {
-        D[RC(i, j)] = d;
+    for (int i = 0; i < N; i++) {
+      for (int j = 0; j < N; j++) {
+        int d = D[RC(i, k)] + D[RC(k, j)];
+        if (d < D[RC(i, j)]) {
+          D[RC(i, j)] = d;
+        }
       }
     }
   }
@@ -125,9 +130,11 @@ int main(int argc, char** argv) {
   apsp_start();
   clock_gettime(CLOCK_REALTIME, &after);
   double delta_ms = (double)(after.tv_sec - before.tv_sec) * 1000.0 + (after.tv_nsec - before.tv_nsec) / 1000000.0;
-  putchar('\n');
-  printf("============ Time ============\n");
+  FILE* out = NULL;
+  if (argc > 4 && strcmp(argv[4], "-o") == 0) {
+    out = fopen(argv[5], "w");
+  }
+  apsp_print_result(out);
   printf("Time: %.3f ms (%.3f s)\n", delta_ms, delta_ms / 1000.0);
-  apsp_print_result();
   return 0;
 }

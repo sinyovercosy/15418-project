@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <bits/stdc++.h>
 #include <error.h>
 #include <limits.h>
 #include <omp.h>
@@ -7,8 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <bits/stdc++.h>
-#include <boost/heap/fibonacci_heap.hpp>
 
 #define SYSEXPECT(expr) \
   do {                  \
@@ -29,7 +28,7 @@ int* D = NULL;  // matrix of distances
 int NCORES = -1;
 
 #define RC(i, j) (i * N + j)
-#define INF (N * N * 100)
+#define INF (N * 100)
 
 // set G[i,j] to value
 inline static void set_G(int i, int j, int value) {
@@ -61,10 +60,9 @@ void init_G(FILE* fp) {
 }
 
 // prints results
-void apsp_print_result() {
+void apsp_print_result(FILE* out) {
   int sum1 = 0;
   int sum2 = 0;
-  printf("========== Solution ==========\n");
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       int d = D[RC(i, j)];
@@ -73,13 +71,18 @@ void apsp_print_result() {
       }
       sum1 = (sum1 + d) % 255;
       sum2 = (sum2 + sum1) % 255;
-      // printf("%d ", d);
+      if (out != NULL) {
+        fprintf(out, "%d ", d);
+      }
     }
-    // putchar('\n');
+    if (out != NULL) {
+      fprintf(out, "\n");
+    }
   }
-  putchar('\n');
-  printf("Checksum: %d", (sum2 << 8) | sum1);
-  putchar('\n');
+  printf("Checksum: %d\n", (sum2 << 8) | sum1);
+  if (out != NULL) {
+    fclose(out);
+  }
   return;
 }
 
@@ -96,11 +99,11 @@ void dijkstra(int s) {
 
   pq.push(std::make_pair(0, s));
 
-  while(!pq.empty()) {
+  while (!pq.empty()) {
     int u = pq.top().second;
     pq.pop();
-    for (int v = 0; v < N && modified_G[RC(u,v)] != -1; v++) {
-      int real_v = modified_G[RC(u,v)];
+    for (int v = 0; v < N && modified_G[RC(u, v)] != -1; v++) {
+      int real_v = modified_G[RC(u, v)];
       int weight = get_G(u, real_v);
       if (dist[u] + weight < dist[real_v]) {
         dist[real_v] = dist[u] + weight;
@@ -113,13 +116,11 @@ void dijkstra(int s) {
   }
 }
 
-
 void apsp_start() {
+  modified_G = (int*)malloc(N * N * sizeof(int));
 
-  modified_G = (int*) malloc(N*N*sizeof(int));
-
-// THIS ONE SOMEHOW MAKES IT SLOWER
-// #pragma omp parallel for num_threads(NCORES) 
+  // THIS ONE SOMEHOW MAKES IT SLOWER
+  // #pragma omp parallel for num_threads(NCORES)
   for (int i = 0; i < N; i++) {
     int counter = 0;
     for (int j = 0; j < N; j++) {
@@ -133,7 +134,7 @@ void apsp_start() {
     }
   }
 
-  int* bellman_ford = (int*) malloc((N + 1) * sizeof(int));
+  int* bellman_ford = (int*)malloc((N + 1) * sizeof(int));
 
   bellman_ford[N] = 0;
   for (int i = 0; i < N; i++) {
@@ -163,7 +164,6 @@ void apsp_start() {
       }
     }
   }
-  
 
 #pragma omp parallel for num_threads(NCORES)
   for (int u = 0; u < N; u++) {
@@ -178,7 +178,6 @@ void apsp_start() {
     dijkstra(u);
   }
 }
-
 
 int main(int argc, char** argv) {
   if (argc < 4 || strcmp(argv[1], "-p") != 0)
@@ -198,7 +197,6 @@ int main(int argc, char** argv) {
     error_exit("Illegal vertex count: %d\n", N);
   }
   init_G(fp);
-  printf("helon\n");
   D = (int*)malloc(N * N * sizeof(int));
   SYSEXPECT(D != NULL);
   struct timespec before, after;
@@ -206,9 +204,11 @@ int main(int argc, char** argv) {
   apsp_start();
   clock_gettime(CLOCK_REALTIME, &after);
   double delta_ms = (double)(after.tv_sec - before.tv_sec) * 1000.0 + (after.tv_nsec - before.tv_nsec) / 1000000.0;
-  putchar('\n');
-  printf("============ Time ============\n");
+  FILE* out = NULL;
+  if (argc > 4 && strcmp(argv[4], "-o") == 0) {
+    out = fopen(argv[5], "w");
+  }
+  apsp_print_result(out);
   printf("Time: %.3f ms (%.3f s)\n", delta_ms, delta_ms / 1000.0);
-  apsp_print_result();
   return 0;
 }

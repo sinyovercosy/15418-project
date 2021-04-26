@@ -2,7 +2,7 @@ TARGET = floyd-omp johnson-omp
 OBJS += floyd-omp.o johnson-omp.o
 
 CXX = g++
-CXXFLAGS += -Wall -Werror -Wextra -pthread -fopenmp -g -O3 -DNDEBUG
+CXXFLAGS += -std=gnu++11 -Wall -Werror -Wextra -pthread -fopenmp -g -O3 -DNDEBUG
 LDFLAGS += $(LIBS)
 
 default:	$(TARGET)
@@ -14,7 +14,7 @@ floyd-omp: floyd-omp.o
 johnson-omp: johnson-omp.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-%.o: %.c
+%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 DEPS = $(OBJS:%.o=%.d)
