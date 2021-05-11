@@ -144,9 +144,16 @@ void apsp_start(int procID, int nproc) {
     bellman_ford[i] = INF;
   }
 
+  int span = (N + nproc - 1) / nproc;
+  int start = procID * span;
+  int end = start + span;
+  if (end > N) {
+    end = N;
+  }
+
   for (int i = 0; i < N + 1; i++) {
 // #pragma omp parallel for num_threads(NCORES)
-    for (int u = 0; u < N + 1; u++) {
+    for (int u = start; u < end; u++) {
       if (u == N) {
         for (int v = 0; v < N; v++) {
           if (bellman_ford[u] < bellman_ford[v]) {
@@ -166,6 +173,8 @@ void apsp_start(int procID, int nproc) {
         }
       }
     }
+    MPI_Allgather(bellman_ford + start, span, MPI_INT, bellman_ford, span, MPI_INT,
+                  MPI_COMM_WORLD);
   }
 
 // #pragma omp parallel for num_threads(NCORES)
@@ -176,12 +185,7 @@ void apsp_start(int procID, int nproc) {
     }
   }
 
-  int span = (N + nproc - 1) / nproc;
-  int start = procID * span;
-  int end = start + span;
-  if (end > N) {
-    end = N;
-  }
+  
 // #pragma omp parallel for num_threads(NCORES)
   for (int u = start; u < end; u++) {
     dijkstra(u);
