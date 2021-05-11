@@ -95,24 +95,42 @@ void apsp_start(int procID, int nproc) {
     endRow = N;
   }
 
+  int bufsize = span * nproc;
+  int* kCol = (int*)malloc(bufsize * sizeof(int));
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       D[RC(i, j)] = get_G(i, j);
     }
+    kCol[i] = D[RC(i, 0)];
   }
 
+  double commTime = 0;
   for (int k = 0; k < N; k++) {
+    // double startTime = MPI_Wtime();
+    MPI_Bcast(D + k * N, N, MPI_INT, k / span, MPI_COMM_WORLD);
+    MPI_Allgather(kCol + startRow, span, MPI_INT, kCol, span, MPI_INT,
+                  MPI_COMM_WORLD);
+    // double endTime = MPI_Wtime();
+    // commTime += endTime - startTime;
+
     for (int i = startRow; i < endRow; i++) {
       for (int j = 0; j < N; j++) {
-        int d = D[RC(i, k)] + D[RC(k, j)];
+        int d = kCol[i] + D[RC(k, j)];
         if (d < D[RC(i, j)]) {
           D[RC(i, j)] = d;
         }
       }
+      kCol[i] = D[RC(i, k + 1)];
     }
-    MPI_Allgather(D + startRow * N, span * N, MPI_INT, D, span * N, MPI_INT,
-                  MPI_COMM_WORLD);
   }
+
+  // double startTime = MPI_Wtime();
+  MPI_Gather(D + startRow * N, span * N, MPI_INT, D, span * N, MPI_INT, ROOT,
+             MPI_COMM_WORLD);
+  // double endTime = MPI_Wtime();
+  // commTime += endTime - startTime;
+  // printf("Proc %d comm time: %.3f ms (%.3f s)\n", procID, commTime * 1000.0,
+  //        commTime);
 }
 
 int main(int argc, char** argv) {
@@ -142,8 +160,7 @@ int main(int argc, char** argv) {
     error_exit("Illegal vertex count: %d\n", N);
   }
   init_G(fp);
-  int dsize = N * ((N + nproc - 1) / nproc) * nproc;
-  D = (int*)malloc(dsize * sizeof(int));
+  D = (int*)malloc(N * N * sizeof(int));
   SYSEXPECT(D != NULL);
 
   MPI_Barrier(MPI_COMM_WORLD);
