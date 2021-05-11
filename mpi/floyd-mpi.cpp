@@ -104,14 +104,10 @@ void apsp_start(int procID, int nproc) {
     kCol[i] = D[RC(i, 0)];
   }
 
-  double commTime = 0;
   for (int k = 0; k < N; k++) {
-    // double startTime = MPI_Wtime();
     MPI_Bcast(D + k * N, N, MPI_INT, k / span, MPI_COMM_WORLD);
     MPI_Allgather(kCol + startRow, span, MPI_INT, kCol, span, MPI_INT,
                   MPI_COMM_WORLD);
-    // double endTime = MPI_Wtime();
-    // commTime += endTime - startTime;
 
     for (int i = startRow; i < endRow; i++) {
       for (int j = 0; j < N; j++) {
@@ -124,13 +120,8 @@ void apsp_start(int procID, int nproc) {
     }
   }
 
-  // double startTime = MPI_Wtime();
   MPI_Gather(D + startRow * N, span * N, MPI_INT, D, span * N, MPI_INT, ROOT,
              MPI_COMM_WORLD);
-  // double endTime = MPI_Wtime();
-  // commTime += endTime - startTime;
-  // printf("Proc %d comm time: %.3f ms (%.3f s)\n", procID, commTime * 1000.0,
-  //        commTime);
 }
 
 int main(int argc, char** argv) {

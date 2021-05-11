@@ -21,4 +21,4 @@ DEPS = $(OBJS:%.o=%.d)
 -include $(DEPS)
 
 clean:
-	rm $(TARGET) $(OBJS) $(DEPS) || true
+	rm $(TARGET) $(OBJS) || true
