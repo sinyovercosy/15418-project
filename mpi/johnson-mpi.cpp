@@ -35,7 +35,7 @@ int* D = NULL;  // matrix of distances
 // set G[i,j] to value
 inline static void set_G(int i, int j, int value) {
   assert(value >= 0 || value == -1);
-  G[RC(i, j)] = (value >= 0) ? value : INF;
+  G[RC(i, j)] = (value != -1) ? value : INF;
   return;
 }
 
@@ -90,6 +90,7 @@ void apsp_print_result(FILE* out) {
 
 
 int* modified_G = NULL;
+int* bellman_ford = NULL;
 
 void dijkstra(int s) {
   int* dist = (int*)malloc(sizeof(int) * N);
@@ -115,7 +116,7 @@ void dijkstra(int s) {
     }
   }
   for (int v = 0; v < N; v++) {
-    D[RC(s, v)] = dist[v];
+    D[RC(s, v)] = dist[v] + bellman_ford[v] - bellman_ford[s];
   }
 }
 
@@ -136,24 +137,25 @@ void apsp_start(int procID, int nproc) {
       modified_G[RC(i, counter)] = -1;
     }
   }
+    
+  int span_bf = (N + nproc) / nproc;
+  int start_bf = procID * span_bf;
+  int end_bf = start_bf + span_bf;
+  if (end_bf > N + 1) {
+    end_bf = N + 1;
+  }
 
-  int* bellman_ford = (int*)malloc((N + 1) * sizeof(int));
+  bellman_ford = (int*)malloc((N + 1) * sizeof(int));
+  int* bellman_ford_from_others = (int*)malloc(span_bf * (N + 1) * nproc * sizeof(int));
 
   bellman_ford[N] = 0;
   for (int i = 0; i < N; i++) {
-    bellman_ford[i] = INF;
-  }
-
-  int span = (N + nproc - 1) / nproc;
-  int start = procID * span;
-  int end = start + span;
-  if (end > N) {
-    end = N;
+    bellman_ford[i] = 0;
   }
 
   for (int i = 0; i < N + 1; i++) {
 // #pragma omp parallel for num_threads(NCORES)
-    for (int u = start; u < end; u++) {
+    for (int u = start_bf; u < end_bf; u++) {
       if (u == N) {
         for (int v = 0; v < N; v++) {
           if (bellman_ford[u] < bellman_ford[v]) {
@@ -168,16 +170,21 @@ void apsp_start(int procID, int nproc) {
             bellman_ford[real_v] = bellman_ford[u] + weight;
           }
         }
-        if (bellman_ford[u] < bellman_ford[N]) {
-          bellman_ford[N] = bellman_ford[u];
+      }
+    }
+  
+    MPI_Allgather(bellman_ford, N + 1, MPI_INT, bellman_ford_from_others, N + 1, MPI_INT,
+                  MPI_COMM_WORLD);
+    for (int j = 0; j < nproc; j++) {
+      for (int u = 0; u < N; u++) {
+        if (bellman_ford_from_others[RC(j, u)] < bellman_ford[u]) {
+          bellman_ford[u] = bellman_ford_from_others[RC(j, u)];
         }
       }
     }
-    MPI_Allgather(bellman_ford + start, span, MPI_INT, bellman_ford, span, MPI_INT,
-                  MPI_COMM_WORLD);
   }
 
-// #pragma omp parallel for num_threads(NCORES)
+
   for (int u = 0; u < N; u++) {
     for (int v = 0; v < N && modified_G[RC(u, v)] != -1; v++) {
       int real_v = modified_G[RC(u, v)];
@@ -185,12 +192,17 @@ void apsp_start(int procID, int nproc) {
     }
   }
 
-  
-// #pragma omp parallel for num_threads(NCORES)
-  for (int u = start; u < end; u++) {
+  int span_d = (N + nproc - 1) / nproc;
+  int start_d = procID * span_d;
+  int end_d = start_d + span_d;
+  if (end_d > N) {
+    end_d = N;
+  }
+
+  for (int u = start_d; u < end_d; u++) {
     dijkstra(u);
   }
-  MPI_Gather(D + start * N, span * N, MPI_INT, D, span * N, MPI_INT, 0,
+  MPI_Gather(D + start_d * N, span_d * N, MPI_INT, D, span_d * N, MPI_INT, 0,
                   MPI_COMM_WORLD);
 }
 
@@ -221,8 +233,9 @@ int main(int argc, char** argv) {
     error_exit("Illegal vertex count: %d\n", N);
   }
   init_G(fp);
-  int dsize = N * ((N + nproc - 1) / nproc) * nproc;
-  D = (int*)malloc(dsize * sizeof(int));
+  int span = (N + nproc - 1) / nproc;
+  int padded_N = span * nproc;
+  D = (int*)malloc(padded_N * N * sizeof(int));
   SYSEXPECT(D != NULL);
 
   MPI_Barrier(MPI_COMM_WORLD);

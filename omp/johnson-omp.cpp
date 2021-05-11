@@ -209,6 +209,7 @@ int main(int argc, char** argv) {
     out = fopen(argv[5], "w");
   }
   apsp_print_result(out);
+  printf("%d\n", NCORES);
   printf("Time: %.3f ms (%.3f s)\n", delta_ms, delta_ms / 1000.0);
   return 0;
 }
