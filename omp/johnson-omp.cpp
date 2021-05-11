@@ -33,7 +33,7 @@ int NCORES = -1;
 // set G[i,j] to value
 inline static void set_G(int i, int j, int value) {
   assert(value >= 0 || value == -1);
-  G[RC(i, j)] = (value >= 0) ? value : INF;
+  G[RC(i, j)] = (value != -1) ? value : INF;
   return;
 }
 
@@ -87,6 +87,7 @@ void apsp_print_result(FILE* out) {
 }
 
 int* modified_G = NULL;
+int* bellman_ford = NULL;
 
 void dijkstra(int s) {
   int* dist = (int*)malloc(sizeof(int) * N);
@@ -112,7 +113,7 @@ void dijkstra(int s) {
     }
   }
   for (int v = 0; v < N; v++) {
-    D[RC(s, v)] = dist[v];
+    D[RC(s, v)] = dist[v] + bellman_ford[v] - bellman_ford[s];
   }
 }
 
@@ -134,7 +135,7 @@ void apsp_start() {
     }
   }
 
-  int* bellman_ford = (int*)malloc((N + 1) * sizeof(int));
+  bellman_ford = (int*)malloc((N + 1) * sizeof(int));
 
   bellman_ford[N] = 0;
   for (int i = 0; i < N; i++) {
@@ -209,7 +210,6 @@ int main(int argc, char** argv) {
     out = fopen(argv[5], "w");
   }
   apsp_print_result(out);
-  printf("%d\n", NCORES);
   printf("Time: %.3f ms (%.3f s)\n", delta_ms, delta_ms / 1000.0);
   return 0;
 }
