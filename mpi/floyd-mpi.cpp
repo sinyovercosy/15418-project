@@ -151,7 +151,9 @@ int main(int argc, char** argv) {
     error_exit("Illegal vertex count: %d\n", N);
   }
   init_G(fp);
-  D = (int*)malloc(N * N * sizeof(int));
+  int span = (N + nproc - 1) / nproc;
+  int padded_N = span * nproc;
+  D = (int*)malloc(padded_N * N * sizeof(int));
   SYSEXPECT(D != NULL);
 
   MPI_Barrier(MPI_COMM_WORLD);
