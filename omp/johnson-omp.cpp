@@ -168,7 +168,12 @@ void apsp_start() {
           int real_v = modified_G[v];
           int weight = get_G(u, real_v);
           if (bellman_ford[u] + weight < bellman_ford[real_v]) {
-            bellman_ford[real_v] = bellman_ford[u] + weight;
+#pragma omp critical
+            {
+            if (bellman_ford[u] + weight < bellman_ford[real_v]) {
+              bellman_ford[real_v] = bellman_ford[u] + weight;
+            }
+            }
           }
         }
         if (bellman_ford[u] < bellman_ford[N]) {
