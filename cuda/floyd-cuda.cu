@@ -19,6 +19,41 @@ __global__ void floyd_kernel(int* D, int N, int k) {
   }
 }
 
+__device__ inline void floyd_block(int* D, int N, int i, int j, int bk) {
+  for (int k = bk * B; k < bk * B + B; k++) {
+    int d = D[RC(i, k)] + D[RC(k, j)];
+    if (d < D[RC(i, j)]) {
+      D[RC(i, j)] = d;
+    }
+  }
+}
+
+__global__ void floyd_block_kernel1(int* D, int N, int bk) {
+  int i = bk * B + threadIdx.y;
+  int j = bk * B + threadIdx.x;
+
+  floyd_block(D, N, i, j, bk);
+}
+
+__global__ void floyd_block_kernel2(int* D, int N, int bk) {
+  if (blockIdx.x == bk)
+    return;
+  int i = blockIdx.x * B + threadIdx.y;
+  int j = bk * B + threadIdx.x;
+
+  floyd_block(D, N, i, j, bk);
+  floyd_block(D, N, j, i, bk);
+}
+
+__global__ void floyd_block_kernel3(int* D, int N, int bk) {
+  if (blockIdx.x == bk || blockIdx.y == bk)
+    return;
+  int i = blockIdx.y * B + threadIdx.y;
+  int j = blockIdx.x * B + threadIdx.x;
+
+  floyd_block(D, N, i, j, bk);
+}
+
 void floyd_cuda(int* input, int* output, int N) {
   // compute number of blocks and threads per block
   const dim3 block_dim(B, B);
@@ -29,8 +64,10 @@ void floyd_cuda(int* input, int* output, int N) {
 
   cudaMemcpy(device_data, input, N * N * sizeof(int), cudaMemcpyHostToDevice);
 
-  for (int k = 0; k < N; k++) {
-    floyd_kernel<<<grid_dim, block_dim>>>(device_data, N, k);
+  for (int bk = 0; bk < N / B; bk++) {
+    floyd_block_kernel1<<<1, block_dim>>>(device_data, N, bk);
+    floyd_block_kernel2<<<grid_dim.x, block_dim>>>(device_data, N, bk);
+    floyd_block_kernel3<<<grid_dim, block_dim>>>(device_data, N, bk);
     cudaDeviceSynchronize();
   }
 
