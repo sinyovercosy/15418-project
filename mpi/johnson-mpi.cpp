@@ -91,6 +91,7 @@ void apsp_print_result(FILE* out) {
 
 int* modified_G = NULL;
 int* bellman_ford = NULL;
+int* out_start_end = NULL;
 
 void dijkstra(int s) {
   int* dist = (int*)malloc(sizeof(int) * N);
@@ -106,8 +107,8 @@ void dijkstra(int s) {
   while (!pq.empty()) {
     int u = pq.top().second;
     pq.pop();
-    for (int v = 0; v < N && modified_G[RC(u, v)] != -1; v++) {
-      int real_v = modified_G[RC(u, v)];
+    for (int v = out_start_end[u]; v < out_start_end[u + 1]; v++) {
+      int real_v = modified_G[v];
       int weight = get_G(u, real_v);
       if (dist[u] + weight < dist[real_v]) {
         dist[real_v] = dist[u] + weight;
@@ -123,18 +124,27 @@ void dijkstra(int s) {
 void apsp_start(int procID, int nproc) {
   // if (procID == 0) {
 
-  modified_G = (int*)malloc(N * N * sizeof(int));
-
+  out_start_end = (int*)malloc((N + 1) * sizeof(int));
+  out_start_end[0] = 0;
+  int counter = 0;
   for (int i = 0; i < N; i++) {
-    int counter = 0;
     for (int j = 0; j < N; j++) {
       if (get_G(i, j) < INF) {
-        modified_G[RC(i, counter)] = j;
         counter++;
       }
     }
-    if (counter < N) {
-      modified_G[RC(i, counter)] = -1;
+    out_start_end[i + 1] = counter;
+  }
+
+  modified_G = (int*)malloc(out_start_end[N] * sizeof(int));
+
+  counter = 0;
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      if (get_G(i, j) < INF) {
+        modified_G[counter] = j;
+        counter++;
+      }
     }
   }
     
@@ -163,8 +173,8 @@ void apsp_start(int procID, int nproc) {
           }
         }
       } else {
-        for (int v = 0; v < N && modified_G[RC(u, v)] != -1; v++) {
-          int real_v = modified_G[RC(u, v)];
+        for (int v = out_start_end[u]; v < out_start_end[u + 1]; v++) {
+          int real_v = modified_G[v];
           int weight = get_G(u, real_v);
           if (bellman_ford[u] + weight < bellman_ford[real_v]) {
             bellman_ford[real_v] = bellman_ford[u] + weight;
@@ -186,8 +196,8 @@ void apsp_start(int procID, int nproc) {
 
 
   for (int u = 0; u < N; u++) {
-    for (int v = 0; v < N && modified_G[RC(u, v)] != -1; v++) {
-      int real_v = modified_G[RC(u, v)];
+    for (int v = out_start_end[u]; v < out_start_end[u + 1]; v++) {
+      int real_v = modified_G[v];
       G[RC(u, real_v)] = get_G(u, real_v) + bellman_ford[u] - bellman_ford[real_v];
     }
   }
