@@ -4,6 +4,7 @@ mpi/*mpi
 gen/*gen
 useful_commands.txt
 input/*txt
+cuda/*cuda
 
 # Created by
 # https://www.toptal.com/developers/gitignore/api/c,linux,macos,vim,vscode,visualstudiocode,windows
