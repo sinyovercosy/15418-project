@@ -28,6 +28,8 @@ int NCORES = -1;
 
 #define RC(i, j) (i * N + j)
 #define INF (N * 100)
+#define B 8
+#define NB (N / B)
 
 // set G[i,j] to value
 inline static void set_G(int i, int j, int value) {
@@ -85,17 +87,10 @@ void apsp_print_result(FILE* out) {
   return;
 }
 
-void apsp_start() {
-#pragma omp parallel for num_threads(NCORES)
-  for (int i = 0; i < N; i++) {
-    for (int j = 0; j < N; j++) {
-      D[RC(i, j)] = get_G(i, j);
-    }
-  }
-  for (int k = 0; k < N; k++) {
-#pragma omp parallel for num_threads(NCORES)
-    for (int i = 0; i < N; i++) {
-      for (int j = 0; j < N; j++) {
+inline void floyd_block(int bi, int bj, int bk) {
+  for (int k = bk * B; k < bk * B + B; k++) {
+    for (int i = bi * B; i < bi * B + B; i++) {
+      for (int j = bj * B; j < bj * B + B; j++) {
         int d = D[RC(i, k)] + D[RC(k, j)];
         if (d < D[RC(i, j)]) {
           D[RC(i, j)] = d;
@@ -105,9 +100,41 @@ void apsp_start() {
   }
 }
 
+void apsp_start() {
+#pragma omp parallel for num_threads(NCORES)
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      D[RC(i, j)] = get_G(i, j);
+    }
+  }
+
+  for (int bk = 0; bk < NB; bk++) {
+    floyd_block(bk, bk, bk);
+#pragma omp parallel for num_threads(NCORES)
+    for (int bj = 0; bj < NB; bj++) {
+      if (bj == bk)
+        continue;
+      floyd_block(bk, bj, bk);
+    }
+
+#pragma omp parallel for num_threads(NCORES)
+    for (int bi = 0; bi < NB; bi++) {
+      if (bi == bk)
+        continue;
+      floyd_block(bi, bk, bk);
+      for (int bj = 0; bj < NB; bj++) {
+        if (bj == bk)
+          continue;
+        floyd_block(bi, bj, bk);
+      }
+    }
+  }
+}
+
 int main(int argc, char** argv) {
   if (argc < 4 || strcmp(argv[1], "-p") != 0)
-    error_exit("Expecting two arguments: -p [processor count] and [file name]\n");
+    error_exit(
+        "Expecting two arguments: -p [processor count] and [file name]\n");
   NCORES = atoi(argv[2]);
   if (NCORES < 1)
     error_exit("Illegal core count: %d\n", NCORES);
@@ -129,7 +156,8 @@ int main(int argc, char** argv) {
   clock_gettime(CLOCK_REALTIME, &before);
   apsp_start();
   clock_gettime(CLOCK_REALTIME, &after);
-  double delta_ms = (double)(after.tv_sec - before.tv_sec) * 1000.0 + (after.tv_nsec - before.tv_nsec) / 1000000.0;
+  double delta_ms = (double)(after.tv_sec - before.tv_sec) * 1000.0 +
+                    (after.tv_nsec - before.tv_nsec) / 1000000.0;
   FILE* out = NULL;
   if (argc > 4 && strcmp(argv[4], "-o") == 0) {
     out = fopen(argv[5], "w");
